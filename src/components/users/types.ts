@@ -1,7 +1,17 @@
-export type UserStatus = 'active' | 'inactive' | 'all';
+export type UserStatus = 'activo' | 'inactivo';
 
-export type UserType = {
+export interface UserType {
   id: number;
   username: string;
-  active: boolean;
-};
+  status: UserStatus;
+}
+
+export interface UserFormValues {
+  username: string;
+  password: string;
+  confirmPassword?: string;
+  status?: UserStatus;
+}
+
+export type UserFilterStatusType = 'all' | UserStatus;
+export type UserActionState = 'create' | 'edit';

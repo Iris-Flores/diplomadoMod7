@@ -1,80 +1,137 @@
-import { useEffect, useState } from 'react';
-import {
-  Box, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle,
-  IconButton, InputAdornment, TextField
-} from '@mui/material';
-import { Visibility, VisibilityOff } from '@mui/icons-material';
-import type { UserType } from './types';
+// src/components/users/UserDialog.tsx
 
-export type UserDialogValues = {
-  username: string;
-  password?: string;
-  confirmPassword?: string;
-};
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  TextField,
+  IconButton,
+  InputAdornment,
+  Box,
+} from '@mui/material';
+import { useEffect, useState } from 'react';
+import Visibility from '@mui/icons-material/Visibility';
+import VisibilityOff from '@mui/icons-material/VisibilityOff';
+import type { UserFormValues, UserType, UserActionState } from './types';
 
 interface Props {
   open: boolean;
   user: UserType | null;
   onClose: () => void;
-  onSubmit: (data: UserDialogValues) => Promise<void> | void;
-  isPending?: boolean;
+  handleCreateEdit: (
+    action: UserActionState | undefined,
+    formData: FormData
+  ) => Promise<void | { message: string; field?: keyof UserFormValues }>;
 }
 
-export const UserDialog = ({ open, user, onClose, onSubmit, isPending }: Props) => {
-  const [form, setForm] = useState<UserDialogValues>({ username: '', password: '', confirmPassword: '' });
-  const [show, setShow] = useState(false);
-  const isEdit = Boolean(user);
+export const UserDialog = ({ open, user, onClose, handleCreateEdit }: Props) => {
+  const isEdit = !!user;
+  const [formValues, setFormValues] = useState<UserFormValues>({
+    username: '',
+    password: '',
+    confirmPassword: '',
+  });
+
+  const [errors, setErrors] = useState<Partial<UserFormValues>>({});
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
-    setForm({ username: user?.username ?? '', password: '', confirmPassword: '' });
-  }, [user]);
+    if (user) {
+      setFormValues({
+        username: user.username,
+        password: '',
+        confirmPassword: '',
+      });
+    } else {
+      setFormValues({
+        username: '',
+        password: '',
+        confirmPassword: '',
+      });
+    }
+    setErrors({});
+  }, [user, open]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormValues((prev) => ({
+      ...prev,
+      [e.target.name]: e.target.value,
+    }));
+  };
 
   const handleSubmit = async () => {
-    if (!form.username || (!isEdit && !form.password)) return;
-    if ((form.password || form.confirmPassword) && form.password !== form.confirmPassword) return;
-    await onSubmit(form);
+    setErrors({});
+    if (!isEdit && formValues.password !== formValues.confirmPassword) {
+      setErrors({ confirmPassword: 'Las contraseñas no coinciden' });
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('username', formValues.username);
+    formData.append('password', formValues.password);
+
+    const result = await handleCreateEdit(isEdit ? 'edit' : 'create', formData);
+    if (result?.field) {
+      setErrors({ [result.field]: result.message });
+    }
   };
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth>
-      <DialogTitle>{isEdit ? 'Editar usuario' : 'Nuevo usuario'}</DialogTitle>
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+      <DialogTitle>{isEdit ? 'Editar Usuario' : 'Crear Usuario'}</DialogTitle>
       <DialogContent>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+        <Box mt={1} display="flex" flexDirection="column" gap={2}>
           <TextField
-            label="Usuario"
-            value={form.username}
-            onChange={(e) => setForm({ ...form, username: e.target.value })}
+            label="Nombre de usuario"
+            name="username"
+            value={formValues.username}
+            onChange={handleChange}
+            error={!!errors.username}
+            helperText={errors.username}
             fullWidth
           />
+
           <TextField
             label="Contraseña"
-            type={show ? 'text' : 'password'}
-            value={form.password ?? ''}
-            onChange={(e) => setForm({ ...form, password: e.target.value })}
+            name="password"
+            type={showPassword ? 'text' : 'password'}
+            value={formValues.password}
+            onChange={handleChange}
+            error={!!errors.password}
+            helperText={errors.password}
             fullWidth
             InputProps={{
               endAdornment: (
                 <InputAdornment position="end">
-                  <IconButton onClick={() => setShow((s) => !s)} edge="end">
-                    {show ? <VisibilityOff /> : <Visibility />}
+                  <IconButton onClick={() => setShowPassword(!showPassword)} edge="end">
+                    {showPassword ? <VisibilityOff /> : <Visibility />}
                   </IconButton>
                 </InputAdornment>
-              )
+              ),
             }}
           />
-          <TextField
-            label="Confirmar contraseña"
-            type={show ? 'text' : 'password'}
-            value={form.confirmPassword ?? ''}
-            onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
-            fullWidth
-          />
+
+          {!isEdit && (
+            <TextField
+              label="Confirmar contraseña"
+              name="confirmPassword"
+              type={showPassword ? 'text' : 'password'}
+              value={formValues.confirmPassword}
+              onChange={handleChange}
+              error={!!errors.confirmPassword}
+              helperText={errors.confirmPassword}
+              fullWidth
+            />
+          )}
         </Box>
       </DialogContent>
+
       <DialogActions>
-        <Button onClick={onClose} disabled={!!isPending}>Cancelar</Button>
-        <Button onClick={handleSubmit} variant="contained" disabled={!!isPending}>
-          {isPending ? <CircularProgress size={20} /> : 'Guardar'}
+        <Button onClick={onClose}>Cancelar</Button>
+        <Button onClick={handleSubmit} variant="contained">
+          {isEdit ? 'Guardar cambios' : 'Crear'}
         </Button>
       </DialogActions>
     </Dialog>
