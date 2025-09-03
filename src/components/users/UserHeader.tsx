@@ -1,26 +1,10 @@
-import { Box, Button, Typography } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
+import { Box, Button, Typography } from "@mui/material";
 
-interface Props {
-  handleOpenCreateDialog: () => void;
-}
-
-export const UserHeader = ({ handleOpenCreateDialog }: Props) => {
+export default function UserHeader({ onAdd }: { onAdd: () => void }) {
   return (
-    <Box
-      display="flex"
-      justifyContent="space-between"
-      alignItems="center"
-      mb={2}
-    >
-      <Typography variant="h5">Gestión de Usuarios</Typography>
-      <Button
-        variant="contained"
-        startIcon={<AddIcon />}
-        onClick={handleOpenCreateDialog}
-      >
-        Crear Usuario
-      </Button>
+    <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+      <Typography variant="h5"> Gestión de Usuarios</Typography>
+      <Button variant="contained" onClick={onAdd}>Nuevo Usuario</Button>
     </Box>
   );
-};
+}

@@ -1,3 +1,4 @@
 export * from './loginModel';
-export * from './userModel';
+export * from './UserModel';
 export * from './TaskModel';
+

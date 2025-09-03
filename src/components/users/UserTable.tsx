@@ -1,27 +1,29 @@
 import {
   DataGrid,
-  type GridPaginationModel,
-  type GridSortModel,
   type GridColDef,
-} from '@mui/x-data-grid';
-import { IconButton } from '@mui/material';
-import EditIcon from '@mui/icons-material/Edit';
-import DeleteIcon from '@mui/icons-material/Delete';
-import ToggleOnIcon from '@mui/icons-material/ToggleOn';
-import ToggleOffIcon from '@mui/icons-material/ToggleOff';
-import type { UserType } from './types';
+  type GridPaginationModel,
+  type GridRenderCellParams,
+  type GridSortModel,
+} from "@mui/x-data-grid";
+import { Box, Chip, IconButton, Stack, Tooltip } from "@mui/material";
+import {
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+  ToggleOn as ToggleOnIcon,
+  ToggleOff as ToggleOffIcon,
+} from "@mui/icons-material";
+import type { User, UserStatus } from "./types";
 
 interface Props {
-  users: UserType[];
+  users: User[];
   rowCount: number;
   paginationModel: GridPaginationModel;
   setPaginationModel: (model: GridPaginationModel) => void;
   sortModel: GridSortModel;
   setSortModel: (model: GridSortModel) => void;
   handleDelete: (id: number) => void;
-  handleToggleStatus: (id: number, currentStatus: boolean) => void;
-   handleActivateInactivate: (id: number, status: 'ACTIVE' | 'INACTIVE') => void;
-  handleOpenEditDialog: (user: UserType) => void;
+  handleToggleStatus: (id: number, status: UserStatus) => void;
+  handleOpenEditDialog: (user: User) => void;
 }
 
 export const UserTable = ({
@@ -35,48 +37,83 @@ export const UserTable = ({
   handleToggleStatus,
   handleOpenEditDialog,
 }: Props) => {
-  
-
   const columns: GridColDef[] = [
-    { field: 'id', headerName: 'ID', width: 90 },
-    { field: 'username', headerName: 'Nombre de usuario', flex: 1 },
-    { field: 'status', headerName: 'Estado', width: 130 },
+    { field: "id", headerName: "ID", width: 90 },
+    { field: "username", headerName: "Usuario", flex: 1 },
     {
-      field: 'actions',
-      headerName: 'Acciones',
-      width: 180,
+      field: "status",
+      headerName: "Estado",
+      width: 150,
+      renderCell: (params: GridRenderCellParams) => (
+        <Chip
+          label={params.value === "active" ? "Activo" : "Inactivo"}
+          color={params.value === "inactive" ? "default" : "success"}
+          size="small"
+          variant="outlined"
+        />
+      ),
+    },
+    {
+      field: "actions",
+      headerName: "Acciones",
       sortable: false,
-      renderCell: ({ row }) => (
-        <>
-          <IconButton onClick={() => handleOpenEditDialog(row)}>
-            <EditIcon />
-          </IconButton>
-          <IconButton onClick={() => handleToggleStatus(row.id, row.status === 'active')}>
-            {row.status === 'active' ? <ToggleOffIcon /> : <ToggleOnIcon />}
-          </IconButton>
-          <IconButton onClick={() => handleDelete(row.id)}>
-            <DeleteIcon />
-          </IconButton>
-        </>
+      filterable: false,
+      width: 200,
+      renderCell: (params: GridRenderCellParams) => (
+        <Stack direction="row" spacing={1}>
+          <Tooltip title="Editar">
+            <IconButton size="small" onClick={() => handleOpenEditDialog(params.row)}>
+              <EditIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+
+          <Tooltip
+            title={
+              params.row.status === "active" ? "Marcar como inactivo" : "Marcar como activo"
+            }
+          >
+            <IconButton
+              size="small"
+              color={params.row.status === "inactive" ? "warning" : "success"}
+              onClick={() => handleToggleStatus(params.row.id, params.row.status)}
+            >
+              {params.row.status === "inactive" ? (
+                <ToggleOffIcon fontSize="small" />
+              ) : (
+                <ToggleOnIcon fontSize="small" />
+              )}
+            </IconButton>
+          </Tooltip>
+
+          <Tooltip title="Eliminar">
+            <IconButton size="small" color="error" onClick={() => handleDelete(params.row.id)}>
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Stack>
       ),
     },
   ];
-  
 
   return (
-    <DataGrid
-      autoHeight
-      rows={users}
-      columns={columns}
-      paginationMode="server"
-      sortingMode="server"
-      rowCount={rowCount}
-      pageSizeOptions={[10, 20, 50]}
-      paginationModel={paginationModel}
-      onPaginationModelChange={setPaginationModel}
-      sortModel={sortModel}
-      onSortModelChange={setSortModel}
-      disableRowSelectionOnClick
-    />
+    <Box height={545}>
+      <DataGrid
+        rows={users}
+        getRowId={(row) => row.id}
+        columns={columns}
+        rowCount={rowCount}
+        paginationMode="server"
+        paginationModel={paginationModel}
+        onPaginationModelChange={setPaginationModel}
+        sortingMode="server"
+        sortModel={sortModel}
+        onSortModelChange={setSortModel}
+        pageSizeOptions={[5, 10, 20]}
+        disableColumnFilter
+        autoHeight
+        disableRowSelectionOnClick
+      />
+    </Box>
   );
 };
+

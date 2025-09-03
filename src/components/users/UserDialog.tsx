@@ -1,139 +1,187 @@
-// src/components/users/UserDialog.tsx
-
 import {
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  Button,
   TextField,
+  Button,
   IconButton,
   InputAdornment,
-  Box,
-} from '@mui/material';
-import { useEffect, useState } from 'react';
-import Visibility from '@mui/icons-material/Visibility';
-import VisibilityOff from '@mui/icons-material/VisibilityOff';
-import type { UserFormValues, UserType, UserActionState } from './types';
+} from "@mui/material";
+import { Visibility, VisibilityOff } from "@mui/icons-material";
+import { useState, useEffect } from "react";
+import { useAlert } from "../../hooks"; 
+import type { User } from "./types";
 
-interface Props {
+export default function UserDialog({
+  open,
+  user,
+  onClose,
+  handleCreateEdit,
+}: {
   open: boolean;
-  user: UserType | null;
+  user: User | null;
   onClose: () => void;
-  handleCreateEdit: (
-    action: UserActionState | undefined,
-    formData: FormData
-  ) => Promise<void | { message: string; field?: keyof UserFormValues }>;
-}
+  handleCreateEdit: (_: any, f: FormData) => Promise<any>;
+}) {
+  const { showAlert } = useAlert();
 
-export const UserDialog = ({ open, user, onClose, handleCreateEdit }: Props) => {
-  const isEdit = !!user;
-  const [formValues, setFormValues] = useState<UserFormValues>({
-    username: '',
-    password: '',
-    confirmPassword: '',
-  });
-
-  const [errors, setErrors] = useState<Partial<UserFormValues>>({});
   const [showPassword, setShowPassword] = useState(false);
+
+  const [form, setForm] = useState({
+    username: "",
+    password: "",
+    confirmPassword: "",
+  });
 
   useEffect(() => {
     if (user) {
-      setFormValues({
-        username: user.username,
-        password: '',
-        confirmPassword: '',
-      });
+      
+      setForm({ username: user.username, password: "", confirmPassword: "" });
     } else {
-      setFormValues({
-        username: '',
-        password: '',
-        confirmPassword: '',
-      });
+      
+      setForm({ username: "", password: "", confirmPassword: "" });
     }
-    setErrors({});
-  }, [user, open]);
+  }, [user]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormValues((prev) => ({
-      ...prev,
-      [e.target.name]: e.target.value,
-    }));
+  const validateAndBuildFormData = (): FormData | null => {
+    const fd = new FormData();
+
+    const username = String(form.username ?? "").trim();
+    const password = String(form.password ?? "");
+    const confirmPassword = String(form.confirmPassword ?? "");
+
+    if (!username) {
+      showAlert("El nombre de usuario es obligatorio.", "warning");
+      return null;
+    }
+
+    if (!user) {
+      
+      if (!password) {
+        showAlert("La contraseña es obligatoria al crear un usuario.", "warning");
+        return null;
+      }
+      if (password.length < 6) {
+        showAlert("La contraseña debe tener al menos 6 caracteres.", "warning");
+        return null;
+      }
+      if (password !== confirmPassword) {
+        showAlert("Las contraseñas no coinciden.", "warning");
+        return null;
+      }
+      fd.append("username", username);
+      fd.append("password", password);
+      fd.append("confirmPassword", confirmPassword);
+    } else {
+      
+      fd.append("username", username);
+      if (password) {
+        if (password.length < 6) {
+          showAlert("La contraseña debe tener al menos 6 caracteres.", "warning");
+          return null;
+        }
+        if (password !== confirmPassword) {
+          showAlert("Las contraseñas no coinciden.", "warning");
+          return null;
+        }
+        fd.append("password", password);
+        fd.append("confirmPassword", confirmPassword);
+      }
+    }
+
+    return fd;
   };
 
-  const handleSubmit = async () => {
-    setErrors({});
-    if (!isEdit && formValues.password !== formValues.confirmPassword) {
-      setErrors({ confirmPassword: 'Las contraseñas no coinciden' });
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append('username', formValues.username);
-    formData.append('password', formValues.password);
-
-    const result = await handleCreateEdit(isEdit ? 'edit' : 'create', formData);
-    if (result?.field) {
-      setErrors({ [result.field]: result.message });
-    }
+  const handleSave = async () => {
+    const fd = validateAndBuildFormData();
+    if (!fd) return;
+    await handleCreateEdit(undefined, fd);
   };
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle>{isEdit ? 'Editar Usuario' : 'Crear Usuario'}</DialogTitle>
+      <DialogTitle>{user ? "Editar Usuario" : "Nuevo Usuario"}</DialogTitle>
       <DialogContent>
-        <Box mt={1} display="flex" flexDirection="column" gap={2}>
-          <TextField
-            label="Nombre de usuario"
-            name="username"
-            value={formValues.username}
-            onChange={handleChange}
-            error={!!errors.username}
-            helperText={errors.username}
-            fullWidth
-          />
+        <TextField
+          margin="dense"
+          label="Nombre de usuario"
+          fullWidth
+          value={form.username}
+          onChange={(e) => setForm({ ...form, username: e.target.value })}
+          required
+        />
 
-          <TextField
-            label="Contraseña"
-            name="password"
-            type={showPassword ? 'text' : 'password'}
-            value={formValues.password}
-            onChange={handleChange}
-            error={!!errors.password}
-            helperText={errors.password}
-            fullWidth
-            InputProps={{
-              endAdornment: (
-                <InputAdornment position="end">
-                  <IconButton onClick={() => setShowPassword(!showPassword)} edge="end">
-                    {showPassword ? <VisibilityOff /> : <Visibility />}
-                  </IconButton>
-                </InputAdornment>
-              ),
-            }}
-          />
-
-          {!isEdit && (
+        {/* Creación: mostrar contraseña; edición: password opcional */}
+        {!user && (
+          <>
             <TextField
-              label="Confirmar contraseña"
-              name="confirmPassword"
-              type={showPassword ? 'text' : 'password'}
-              value={formValues.confirmPassword}
-              onChange={handleChange}
-              error={!!errors.confirmPassword}
-              helperText={errors.confirmPassword}
+              margin="dense"
+              label="Contraseña"
+              type={showPassword ? "text" : "password"}
               fullWidth
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton onClick={() => setShowPassword(!showPassword)} edge="end">
+                      {showPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
             />
-          )}
-        </Box>
+            <TextField
+              margin="dense"
+              label="Confirmar contraseña"
+              type={showPassword ? "text" : "password"}
+              fullWidth
+              value={form.confirmPassword}
+              onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
+            />
+          </>
+        )}
+
+        {/* En edición dejamos la posibilidad de cambiar contraseña si el usuario escribe una */}
+        {user && (
+          <>
+            <TextField
+              margin="dense"
+              label="Nueva contraseña"
+              type={showPassword ? "text" : "password"}
+              fullWidth
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton onClick={() => setShowPassword(!showPassword)} edge="end">
+                      {showPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <TextField
+              margin="dense"
+              label="Confirmar nueva contraseña"
+              type={showPassword ? "text" : "password"}
+              fullWidth
+              value={form.confirmPassword}
+              onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
+            />
+          </>
+        )}
       </DialogContent>
 
       <DialogActions>
         <Button onClick={onClose}>Cancelar</Button>
-        <Button onClick={handleSubmit} variant="contained">
-          {isEdit ? 'Guardar cambios' : 'Crear'}
+        <Button variant="contained" onClick={handleSave}>
+          Guardar
         </Button>
       </DialogActions>
     </Dialog>
   );
-};
+}
+

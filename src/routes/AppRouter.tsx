@@ -2,7 +2,7 @@ import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { LoginPage, NotFoundPage, UserPage } from '../pages/public';
 import { PublicRoute } from './PublicRouter';
 import { PrivateLayout } from '../layouts/PrivateLayout';
-import { PerfilPage, TasksPage, UsersPage } from '../pages/private';
+import { PerfilPage, TasksPage, UserPage as PrivateUserPage } from '../pages/private';
 
 export const AppRouter = () => {
   return (
@@ -17,7 +17,7 @@ export const AppRouter = () => {
         <Route element={<PrivateLayout />}>
           <Route path="/perfil" element={<PerfilPage />}></Route>
           <Route path="/tasks" element={<TasksPage />}></Route>
-          <Route path="/usuarios" element={<UsersPage />} />
+          <Route path="/usuarios" element={<PrivateUserPage />} />
         </Route>
 
         <Route path="*" element={<NotFoundPage />}></Route>

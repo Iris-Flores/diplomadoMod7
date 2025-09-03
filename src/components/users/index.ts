@@ -1,5 +1,5 @@
-export * from './UserHeader';
-export * from './UserFilter';
-export * from './UserTable';
-export * from './UserDialog';
-//export * from './types';
+export { default as UserHeader } from "./UserHeader";
+export { default as UserFilter } from "./UserFilter";
+export { UserTable } from "./UserTable";
+export { default as UserDialog } from "./UserDialog";
+export * from "./types";

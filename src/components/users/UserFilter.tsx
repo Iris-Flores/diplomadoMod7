@@ -1,41 +1,36 @@
-import { Box, TextField, MenuItem } from '@mui/material';
-import type { UserFilterStatusType } from './types';
+import { Box, TextField, MenuItem } from "@mui/material";
 
-interface Props {
-  filterStatus: UserFilterStatusType;
-  setFilterStatus: (value: UserFilterStatusType) => void;
-  setSearch: (value: string) => void;
-}
-
-export const UserFilter = ({
-  filterStatus,
-  setFilterStatus,
-  setSearch,
-}: Props) => {
+export default function UserFilter({
+  filters,
+  onChange,
+}: {
+  filters: { username: string; status: string };
+  onChange: (f: { username: string; status: string }) => void;
+}) {
   return (
-    <Box
-      display="flex"
-      gap={2}
-      mb={2}
-      flexWrap="wrap"
-      justifyContent="space-between"
-    >
+    <Box display="flex" gap={2} mb={2}>
       <TextField
         label="Buscar por nombre"
-        variant="outlined"
-        onChange={(e) => setSearch(e.target.value)}
+        value={filters.username}
+        onChange={(e) => onChange({ ...filters, username: e.target.value })}
       />
 
       <TextField
-        label="Estado"
         select
-        value={filterStatus}
-        onChange={(e) => setFilterStatus(e.target.value as UserFilterStatusType)}
+        label="Estado"
+        value={filters.status === "ALL" ? "" : filters.status}
+        onChange={(e) =>
+          onChange({
+            ...filters,
+            status: e.target.value === "" ? "ALL" : e.target.value,
+          })
+        }
+        sx={{ minWidth: 160 }}
       >
-        <MenuItem value="all">Todos</MenuItem>
+        <MenuItem value="ALL">Todos</MenuItem>
         <MenuItem value="active">Activo</MenuItem>
         <MenuItem value="inactive">Inactivo</MenuItem>
       </TextField>
     </Box>
   );
-};
+}

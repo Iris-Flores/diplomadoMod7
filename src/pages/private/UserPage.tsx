@@ -1,158 +1,192 @@
-import { Box } from '@mui/material';
+import { Box } from "@mui/material";
 import {
   UserDialog,
   UserFilter,
   UserHeader,
   UserTable,
-} from '../../components/users';
-import type { UserType, UserFormValues, UserActionState } from '../../components/users/types';
-import { useEffect, useState } from 'react';
-import type { GridPaginationModel, GridSortModel } from '@mui/x-data-grid';
-import { useAlert, useAxios } from '../../hooks';
-import { errorHelper, hanleZodError } from '../../helpers';
-import { schemaUser } from '../../models';
+} from "../../components/users";
+import { useEffect, useState } from "react";
+import type { GridPaginationModel, GridSortModel } from "@mui/x-data-grid";
+import { useAlert, useAxios } from "../../hooks";
+import { errorHelper } from "../../helpers";
+//import { schemaUser, type UserFormValues } from "../../models/UserModel";
+import type { User, PaginatedResponse, FilterStatus, UserStatus } from "../../components/users/types";
+//import { z } from "zod";
 
-export const UsersPage = () => {
+export const UserPage = () => {
   const { showAlert } = useAlert();
   const axios = useAxios();
 
-  const [filterStatus, setFilterStatus] = useState<'all' | 'activo' | 'inactivo'>('all');
-  const [search, setSearch] = useState('');
-  const [users, setUsers] = useState<UserType[]>([]);
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>("ALL");
+  const [search, setSearch] = useState("");
+  const [users, setUsers] = useState<User[]>([]);
   const [total, setTotal] = useState(0);
-
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
     page: 1,
     pageSize: 10,
   });
-
-  const [sortModel, setSortModel] = useState<GridSortModel>([]);
+  const [sortModel] = useState<GridSortModel>([]);
   const [openDialog, setOpenDialog] = useState(false);
-  const [user, setUser] = useState<UserType | null>(null);
+  const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
-    listUsersApi();
+    listUserApi();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, filterStatus, paginationModel, sortModel]);
 
-  const listUsersApi = async () => {
+  const listUserApi = async () => {
     try {
       const orderBy = sortModel[0]?.field;
       const orderDir = sortModel[0]?.sort;
-
-      const response = await axios.get('/users', {
+      const response = await axios.get<PaginatedResponse<User>>("/users", {
         params: {
-          page: paginationModel.page,
+          page: paginationModel.page + 1,
           limit: paginationModel.pageSize,
           orderBy,
           orderDir,
           search,
-          status: filterStatus === 'all' ? undefined : filterStatus.toUpperCase(),
+          status: filterStatus === "ALL" ? undefined : filterStatus,
         },
       });
-
       setUsers(response.data.data);
-      setTotal(response.data.total || response.data.count); 
+      setTotal(response.data.total);
     } catch (error) {
-      showAlert(errorHelper(error), 'error');
+      showAlert(errorHelper(error), "error");
     }
   };
 
   const handleOpenCreateDialog = () => {
+    setOpenDialog(true);
     setUser(null);
-    setOpenDialog(true);
-  };
-
-  const handleOpenEditDialog = (user: UserType) => {
-    setUser(user);
-    setOpenDialog(true);
   };
 
   const handleCloseDialog = () => {
-    setUser(null);
     setOpenDialog(false);
+    setUser(null);
   };
 
-  const handleCreateEdit = async (
-    action: UserActionState | undefined,
-    formdata: FormData
-  ) => {
-    const rawData = {
-      username: formdata.get('username') as string,
-      password: formdata.get('password') as string,
-    };
+  const handleOpenEditDialog = (u: User) => {
+    setOpenDialog(true);
+    setUser(u);
+  };
+  
+ const handleCreateEdit = async (_: any, formdata: FormData) => {
+  try {
+    
+    const username = String(formdata.get("username") ?? "").trim();
+    const passwordRaw = formdata.get("password");
+    const confirmRaw = formdata.get("confirmPassword");
 
-    try {
-      schemaUser.parse(rawData);
+    if (user?.id) {
+      const payload: any = { username };
 
-      if (action === 'edit' && user?.id) {
-        await axios.put(`/users/${user.id}`, rawData);
-        showAlert('Usuario editado', 'success');
-      } else {
-        await axios.post('/users', rawData);
-        showAlert('Usuario creado', 'success');
+      if (passwordRaw !== null && String(passwordRaw).length > 0) {
+        payload.password = String(passwordRaw);
+        payload.confirmPassword = String(confirmRaw ?? "");
       }
 
-      listUsersApi();
-      handleCloseDialog();
-      return;
-    } catch (error) {
-      const err = hanleZodError<UserFormValues>(error, rawData);
-      showAlert(err.message, 'error');
-      return err;
+      if (!username) {
+        showAlert("El nombre de usuario es obligatorio.", "warning");
+        return;
+      }
+      console.debug("PUT /users payload:", payload);
+
+      const res = await axios.put(`/users/${user.id}`, payload);
+      console.debug("PUT /users response:", res.data);
+      showAlert("Usuario editado", "success");
+
+    } else {
+      const password = String(passwordRaw ?? "");
+      const confirmPassword = String(confirmRaw ?? "");
+
+      if (!username) {
+        showAlert("El nombre de usuario es obligatorio.", "warning");
+        return;
+      }
+      if (!password) {
+        showAlert("La contraseña es obligatoria al crear usuario.", "warning");
+        return;
+      }
+      if (password.length < 6) {
+        showAlert("La contraseña debe tener al menos 6 caracteres.", "warning");
+        return;
+      }
+      if (password !== confirmPassword) {
+        showAlert("Las contraseñas no coinciden.", "warning");
+        return;
+      }
+
+      const payloadCreate = {
+        username,
+        password,
+        confirmPassword,
+        status: "inactive" as UserStatus,
+      };
+
+      
+      console.debug("POST /users payload:", payloadCreate);
+      const res = await axios.post("/users", payloadCreate);
+      console.debug("POST /users response:", res.data);
+      showAlert("Usuario creado (inactivo)", "success");
     }
-  };
+    await listUserApi();
+    handleCloseDialog();
+    return;
+  } catch (err: any) {
+    const serverMsg = err?.response?.data?.message ?? err?.response?.data ?? err?.message;
+    console.error("handleCreateEdit error:", err, "serverMsg:", serverMsg);
+    showAlert(serverMsg ? String(serverMsg) : errorHelper(err), "error");
+  }
+};
+
 
   const handleDelete = async (id: number) => {
     try {
-      const confirmed = window.confirm('¿Estás seguro de eliminar este usuario?');
-      if (!confirmed) return;
-
+      if (!window.confirm("¿Estas seguro de eliminar?")) return;
       await axios.delete(`/users/${id}`);
-      showAlert('Usuario eliminado', 'success');
-      listUsersApi();
+      showAlert("Usuario eliminado", "success");
+      listUserApi();
     } catch (error) {
-      showAlert(errorHelper(error), 'error');
+      showAlert(errorHelper(error), "error");
     }
   };
 
-  const handleActivateInactivate = async (id: number, status: 'ACTIVE' | 'INACTIVE') => {
+  const handleToggleStatus = async (id: number, status: UserStatus) => {
     try {
-      const confirmed = window.confirm(
-        `¿Estás seguro de ${status === 'ACTIVE' ? 'activar' : 'inactivar'} este usuario?`
-      );
-      if (!confirmed) return;
-
-      await axios.patch(`/users/activateInactivate/${id}`, { status });
-      showAlert(`Usuario ${status === 'ACTIVE' ? 'activado' : 'inactivado'}`, 'success');
-      listUsersApi();
+      if (!window.confirm("¿Cambiar estado del usuario?")) return;
+      await axios.patch(`/users/${id}`, {
+        status: status === "active" ? "inactive" : "active",
+      });
+      showAlert("Estado actualizado", "success");
+      listUserApi();
     } catch (error) {
-      showAlert(errorHelper(error), 'error');
+      showAlert(errorHelper(error), "error");
     }
   };
 
   return (
-    <Box sx={{ width: '100%' }}>
-      <UserHeader handleOpenCreateDialog={handleOpenCreateDialog} />
+    <Box sx={{ width: "100%" }}>
+      <UserHeader onAdd={handleOpenCreateDialog} />
 
       <UserFilter
-        filterStatus={filterStatus}
-        setFilterStatus={setFilterStatus}
-        setSearch={setSearch}
+        filters={{ username: search, status: filterStatus }}
+        onChange={({ username, status }) => {
+          setSearch(username);
+          setFilterStatus(status as FilterStatus);
+        }}
       />
 
       <UserTable
         users={users}
-        rowCount={total}
         paginationModel={paginationModel}
-        setPaginationModel={setPaginationModel}
+        rowCount={total}
         sortModel={sortModel}
-        setSortModel={setSortModel}
+        setPaginationModel={setPaginationModel}
+        setSortModel={() => {}}
+        handleOpenEditDialog={handleOpenEditDialog}
         handleDelete={handleDelete}
-        handleActivateInactivate={handleActivateInactivate}
-        handleOpenEditDialog={handleOpenEditDialog} handleToggleStatus={function (): void {
-          throw new Error('Function not implemented.');
-        } }      />
+        handleToggleStatus={handleToggleStatus}
+      />
 
       <UserDialog
         open={openDialog}
@@ -163,3 +197,4 @@ export const UsersPage = () => {
     </Box>
   );
 };
+
